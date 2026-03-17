@@ -24,14 +24,13 @@ Recipes and interactions lived in separate files, so we merged them to get one `
 
 **First 5 rows of the cleaned table:**
 
-```
-name,avg_rating,calories,protein,minutes,n_ingredients
-1 brownies in the world    best ever,4.0,138.4,3.0,40,9
-1 in canada chocolate chip cookies,5.0,595.1,13.0,45,11
-412 broccoli casserole,5.0,194.8,22.0,40,9
-millionaire pound cake,5.0,878.3,20.0,120,7
-2000 meatloaf,5.0,267.0,29.0,90,13
-```
+| name | avg_rating | calories | protein | minutes | n_ingredients |
+| ---- | ---------- | -------- | ------- | ------- | ------------- |
+| 1 brownies in the world    best ever | 4.0 | 138.4 | 3.0 | 40 | 9 |
+| 1 in canada chocolate chip cookies | 5.0 | 595.1 | 13.0 | 45 | 11 |
+| 412 broccoli casserole | 5.0 | 194.8 | 22.0 | 40 | 9 |
+| millionaire pound cake | 5.0 | 878.3 | 20.0 | 120 | 7 |
+| 2000 meatloaf | 5.0 | 267.0 | 29.0 | 90 | 13 |
 
 ### Univariate Analysis
 

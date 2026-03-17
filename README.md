@@ -8,11 +8,11 @@
 
 ## Introduction
 
-Food.com (formerly Recipe1M) provided thousands of recipes with nutrition facts and user ratings—so we could ask whether what’s in a recipe predicts how people rate it.
+Food.com (formerly Recipe1M) provided thousands of recipes with nutrition facts and user ratings—so we could ask whether what’s in a recipe predicts how people rate it. Anyone choosing a recipe cares whether others liked it; linking nutrition to ratings helps pick dishes worth making.
 
 **The question we focused on:** Can we predict whether a recipe will land in the low, medium, or high rating tier using its nutritional features?
 
-We ended up with **77,260 recipes** after dropping rows with missing ratings or key nutrition values. The columns we used: **avg_rating** (mean user rating 1–5), **protein** (% Daily Value), **calories** (per serving), **n_ingredients** (number of ingredients), and **minutes** (cooking time).
+We dropped rows with missing avg_rating, protein, or calories (needed for our model), leaving **77,260 recipes**. The columns we used: **avg_rating** (mean user rating 1–5), **protein** (% Daily Value), **calories** (per serving), **n_ingredients** (number of ingredients), and **minutes** (cooking time).
 
 ---
 
@@ -46,13 +46,22 @@ Protein (% DV) falls in the 5–40 range with a right tail. We dropped recipes w
 ### Bivariate Analysis
 
 <iframe
+  src="assets/protein-calories-scatter.html"
+  width="800"
+  height="600"
+  frameborder="0"
+></iframe>
+
+Protein and calories show a positive association—higher-protein recipes tend to have more calories per serving. Both are key features for our prediction model.
+
+<iframe
   src="assets/protein-missingness-plot.html"
   width="800"
   height="600"
   frameborder="0"
 ></iframe>
 
-When protein is missing, recipes tend to skew slightly lower on average rating than when it’s present. The overlap is still heavy, though, which fits the idea that protein missingness is tied to other observed variables (MAR) rather than purely random.
+When protein is missing, recipes tend to skew slightly lower on average rating than when it's present. The overlap is still heavy, though, which fits the idea that protein missingness is tied to other observed variables (MAR) rather than purely random.
 
 ### Interesting Aggregates
 
@@ -87,7 +96,7 @@ It does not depend on contributor_id (p &gt; 0.05). The plot above shows the avg
 
 We tested H0: no difference in average rating between high- and low-protein recipes, vs H1: high-protein recipes have higher ratings. High/low split at the median. Test statistic: mean(avg_rating | high protein) − mean(avg_rating | low protein)—directly measures the rating gap. α = 0.05 (standard).
 
-One-sided permutation test (500 reps). Observed difference: **−0.0186** (high actually *slightly* lower than low). P-value: **1.0**. We fail to reject H0.
+One-sided permutation test (500 reps). Observed difference: **−0.0186** (high actually *slightly* lower than low). P-value: **1.0**. We fail to reject H0. The data do not support the idea that high-protein recipes get higher ratings; the tiny observed difference could be noise.
 
 ---
 
@@ -95,7 +104,7 @@ One-sided permutation test (500 reps). Observed difference: **−0.0186** (high 
 
 **Task:** Multiclass classification—predict whether a recipe’s average rating falls in the low, medium, or high bin.
 
-We binned `avg_rating` into three equal-width bins for `rating_class` (broad tiers, not exact scores). Used accuracy since classes are fairly balanced. Features: protein, calories, n_ingredients, minutes—all known before any ratings exist.
+We binned `avg_rating` into three equal-width bins for `rating_class` (broad tiers, not exact scores). We used accuracy because classes are fairly balanced; F1 would matter more if we cared about one class. All features (protein, calories, n_ingredients, minutes) are known at prediction time—we predict rating tier from recipe attributes only, not from future user feedback.
 
 ---
 
@@ -103,7 +112,7 @@ We binned `avg_rating` into three equal-width bins for `rating_class` (broad tie
 
 **Setup:** Logistic regression with `protein` and `calories` in an sklearn `Pipeline`. Both are quantitative, so no extra encoding.
 
-**Results:** Train accuracy 93.66%, test 93.50%. Train and test are close, so the model generalizes. Nutrition alone gives useful signal for rating tier.
+**Results:** Train accuracy 93.66%, test 93.50%. Train and test are close, so the model generalizes. We consider it good: nutrition alone gives useful signal for rating tier, and the small gap between train and test suggests little overfitting.
 
 ---
 

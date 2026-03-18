@@ -8,7 +8,7 @@
 
 ## Overview
 
-This data science project explores whether high-protein recipes receive higher ratings on Food.com. We use an FDA-based definition: high protein = ≥ 20% of the Daily Value per serving (21 CFR 101.54). A binary flag `is_high_protein` drives our hypothesis test and EDA.
+This data science project explores whether high-protein recipes receive higher ratings on Food.com. We use an FDA-based definition: high protein = ≥ 20% of the Daily Value per serving . A binary flag `is_high_protein` drives our hypothesis test and EDA.
 
 ---
 

@@ -18,9 +18,7 @@ Choosing a recipe often comes down to whether others liked it. Protein is one of
 
 **The central question of this project:** Do high-protein recipes get higher ratings than low-protein ones?
 
-To investigate this, we analyzed two datasets consisting of recipes and user interactions posted since 2008 on [food.com](https://www.food.com/). The datasets were originally collected for the recommender system research paper [Generating Personalized Recipes from Historical User Preferences](https://cseweb.ucsd.edu/~jmcauley/pdfs/emnlp19c.pdf) by Majumder et al.
-
-The first dataset, `RAW_recipes.csv`, contains 83,782 rows, each representing a unique recipe, with columns including the recipe name, tags, preparation time, ingredients, and a `nutrition` field storing calorie and nutrient information. The second dataset, `interactions.csv`, contains 731,927 rows, each representing a user's rating and review of a specific recipe.
+To investigate this, we analyzed two datasets consisting of recipes and user interactions posted since 2008 on [food.com](https://www.food.com/). The first dataset, `RAW_recipes.csv`, contains 83,782 rows, each representing a unique recipe, with columns including the recipe name, tags, preparation time, ingredients, and a `nutrition` field storing calorie and nutrient information. The second dataset, `interactions.csv`, contains 731,927 rows, each representing a user's rating and review of a specific recipe.
 
 We define "high protein" using the FDA nutrient content claim standard: **≥ 20% of the Daily Value (DV) per serving**. This gives us a meaningful, real-world threshold rather than an arbitrary cutoff. The most relevant columns for our analysis are described below.
 

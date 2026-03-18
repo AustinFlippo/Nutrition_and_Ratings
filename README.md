@@ -60,21 +60,21 @@ The first five rows of the cleaned dataset are shown below.
 
 We first examined the distribution of protein (% DV) across all recipes. As shown below, the distribution is concentrated between 5% and 40% DV, with relatively few recipes exceeding 60%. The red vertical line marks the FDA high-protein threshold of 20% DV, which splits the dataset roughly in half.
 
-<iframe src="assets/attempt2/protein-distribution-fda.html" width="800" height="500" frameborder="0"></iframe>
+<iframe src="assets/protein-distribution-fda.html" width="800" height="500" frameborder="0"></iframe>
 
 We also examined the distribution of average ratings. Ratings are heavily right-skewed, with the vast majority of recipes scoring between 4 and 5. This skew motivates our decision to bin ratings into three classes (low, medium, high) for the prediction task, rather than treating rating as a continuous target.
 
-<iframe src="assets/attempt2/avg-rating-distribution.html" width="800" height="500" frameborder="0"></iframe>
+<iframe src="assets/avg-rating-distribution.html" width="800" height="500" frameborder="0"></iframe>
 
 ### Bivariate Analysis
 
 To explore the relationship between protein and calories, we created a scatter plot of the two variables. Protein and calories are positively associated — recipes with more protein per serving tend to also have more total calories, which makes sense given that protein-dense foods like meat and legumes are calorie-dense as well.
 
-<iframe src="assets/attempt2/protein-calories-scatter.html" width="800" height="500" frameborder="0"></iframe>
+<iframe src="assets/protein-calories-scatter.html" width="800" height="500" frameborder="0"></iframe>
 
 We also compared average ratings between low-protein (< 20% DV) and high-protein (≥ 20% DV) recipes. The distributions appear nearly identical, suggesting that protein level alone may not be a strong predictor of rating — a result we formally test in the Hypothesis Testing section.
 
-<iframe src="assets/attempt2/rating-by-protein-fda.html" width="800" height="500" frameborder="0"></iframe>
+<iframe src="assets/rating-by-protein-fda.html" width="800" height="500" frameborder="0"></iframe>
 
 ### Interesting Aggregates
 
@@ -109,7 +109,7 @@ We performed permutation tests to assess whether the missingness of `protein` de
 
 The plot below shows the distribution of average rating for recipes where protein is missing versus not missing. When protein is missing, recipes tend to have slightly lower average ratings, consistent with our finding that missingness depends on `avg_rating`.
 
-<iframe src="assets/attempt2/protein-missingness-plot.html" width="800" height="500" frameborder="0"></iframe>
+<iframe src="assets/protein-missingness-plot.html" width="800" height="500" frameborder="0"></iframe>
 
 ---
 
@@ -179,4 +179,4 @@ To evaluate whether our final model performs equitably across different types of
 
 We ran a two-sided permutation test with 1,000 repetitions. The resulting **p-value was approximately 0.06**, which is just above our significance threshold. We therefore **fail to reject the null hypothesis** and conclude there is no strong evidence that our model treats quick and long recipes differently. The result is borderline, however, and a larger dataset or stricter threshold could yield a different conclusion.
 
-<iframe src="assets/attempt2/fairness-permutation.html" width="800" height="500" frameborder="0"></iframe>
+<iframe src="assets/fairness-permutation.html" width="800" height="500" frameborder="0"></iframe>

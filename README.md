@@ -85,7 +85,7 @@ To further understand the relationship between protein level and rating, we comp
 | False | 38,265 | 4.63 |
 | True | 38,995 | 4.61 |
 
-High-protein recipes actually score marginally *lower* on average, though the difference is tiny (0.02 points). We also grouped recipes by `rating_class` and computed mean protein, calories, and ingredient count per group.
+High-protein recipes score marginally *lower* on average (0.02 points). We also grouped recipes by `rating_class` and computed mean protein, calories, and ingredient count per group.
 
 | rating_class | Mean Protein | Mean Calories | Mean N Ingredients |
 | --- | --- | --- | --- |
@@ -93,15 +93,17 @@ High-protein recipes actually score marginally *lower* on average, though the di
 | medium | 34.5 | 446.2 | 9.3 |
 | high | 34.8 | 441.2 | 9.4 |
 
-Interestingly, higher-rated recipes tend to have slightly more protein and fewer calories on average. This pattern is subtle but consistent across classes.
+When we group by rating instead, higher-rated recipes show slightly more protein and fewer calories on average. These two views seem contradictory: high-protein recipes rate lower, yet higher-rated recipes have more protein. The relationship is weak and depends on how we slice the data. Overall differences are negligible; none of these patterns are statistically meaningful on their own.
 
 ---
 
 ## Assessment of Missingness
 
-### NMAR Analysis
+### Missingness Mechanism
 
-We believe the missingness of the `protein` column is likely **MNAR** (Missing Not at Random). We converted protein values of 0% DV to `NaN` because a true zero is nutritionally implausible (essentially no common food has zero protein). These zeros instead reflect cases where the contributor never filled in the nutrition information. Crucially, the type of recipe that is most likely to have nutrition left blank (e.g., desserts, drinks, or casual community recipes) may also be the type of recipe with genuinely low protein content. This means the missingness could depend on the unobserved true protein value itself, which is the definition of MNAR. Obtaining recipe category data (e.g., whether a recipe is tagged as a dessert or beverage) could potentially make this missingness MAR, as category might explain why nutrition was left blank.
+We converted protein values of 0% DV to `NaN` because a true zero is nutritionally implausible (essentially no common food has zero protein). These zeros reflect cases where the contributor never filled in the nutrition information.
+
+The missingness is **not MCAR** (Missing Completely at Random): as we show below, it depends on `avg_rating`, `calories`, and `n_ingredients`. That suggests it may be **MAR** (Missing at Random): given those observed variables, the missingness might be explainable. It could also be **MNAR** if the unobserved true protein value influences whether contributors bother to fill in the field (e.g., desserts and drinks are more likely to be left blank and are also low in protein). We cannot distinguish MAR from MNAR without additional data. Obtaining recipe category (e.g., dessert vs. main dish) could help make the mechanism MAR if category explains the pattern.
 
 ### Missingness Dependency
 
@@ -133,17 +135,17 @@ The observed difference in means was **−0.0186**: high-protein recipes actuall
 
 ## Framing a Prediction Problem
 
-Having explored the relationship between protein and ratings, we now ask: can we predict whether a recipe meets the FDA "high protein" threshold (≥ 20% DV) based on its other nutritional and structural features?
+Our hypothesis test showed that protein level does not meaningfully predict ratings. Given that finding, we pivot to a related question: can we predict whether a recipe meets the FDA "high protein" threshold (≥ 20% DV) based on its other nutritional and structural features? This is a practical follow-up: if we cannot use protein to predict ratings, we ask instead whether other recipe attributes predict high-protein status.
 
 We frame this as a **binary classification** problem, predicting `is_high_protein`, the FDA-based flag (21 CFR 101.54) indicating whether a recipe meets the high-protein threshold. We switched to this binary target because the prior three-class rating prediction (low/medium/high) yielded very low macro F1 (~0.32) due to severe class imbalance. The FDA binary flag offers a more balanced and interpretable prediction task.
 
-We evaluate our models using both **accuracy** and **F1 (macro)**. With balanced classes (~50/50), either metric is appropriate; we report both for completeness. We exclude `protein` from the feature set to avoid trivial prediction (since `is_high_protein` is directly defined by protein ≥ 20). All features used (`calories`, `minutes`, `n_ingredients`, `total_fat`) are properties of the recipe itself and would be known at the time a recipe is posted, before any ratings have been submitted. This ensures there is no data leakage in our model.
+We evaluate our models using both **accuracy** and **F1 (macro)**. With balanced classes (~50/50), either metric is appropriate; we report both for completeness. We exclude `protein` from the feature set to avoid trivial prediction (since `is_high_protein` is directly defined by protein ≥ 20). We use `calories`, `minutes`, `n_ingredients`, and `total_fat` because each relates to protein content: calories and total fat correlate with nutrient density (protein-rich meals like meat and legumes tend to be more calorie- and fat-dense), ingredient count reflects recipe type (e.g., simple desserts vs. multi-step mains), and cook time often tracks dish complexity. All are known at prediction time; no data leakage.
 
 ---
 
 ## Baseline Model
 
-Our baseline model is a logistic regression classifier trained on two quantitative features: `calories` (total calories per serving) and `minutes` (cooking time). Both are scaled with `StandardScaler` and combined with the model in a single sklearn `Pipeline`. We use `stratify=y` in the train/test split to preserve class proportions.
+With the prediction task framed above, we build a baseline: logistic regression on `calories` and `minutes`. Both are scaled with `StandardScaler` and combined in a single sklearn `Pipeline`. We use `stratify=y` in the train/test split to preserve class proportions.
 
 On the test set, the baseline achieved approximately **75.5% accuracy** and a **macro F1 score of ~0.75**. We do not consider this baseline "good"; it is a minimal starting point; the final model adds features to improve.
 
@@ -151,7 +153,7 @@ On the test set, the baseline achieved approximately **75.5% accuracy** and a **
 
 ## Final Model
 
-We chose the **RandomForestClassifier** as our final model. To improve upon the baseline, we added two additional features beyond `calories` and `minutes`: `n_ingredients` (recipe complexity) and `total_fat` (fat content). We chose these because they correlate with recipe type (e.g., protein-rich mains have different fat profiles than desserts). StandardScaler puts features on the same scale and avoids one feature dominating.
+We chose the **RandomForestClassifier** as our final model. To improve upon the baseline, we added `n_ingredients` and `total_fat` alongside `calories` and `minutes`. Fat content and ingredient count help distinguish protein-rich mains from low-protein dishes (e.g., desserts tend to have less protein, more sugar). Scaling is not required for tree-based models; we kept StandardScaler in the pipeline for consistency with the baseline and to ease comparison.
 
 The RandomForestClassifier achieved a **test macro F1 of 0.7759** on the held-out test set, outperforming the logistic regression baseline. We selected this model based on its stronger F1 performance in cross-validation.
 

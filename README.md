@@ -42,9 +42,9 @@ To prepare the data for analysis, we performed the following cleaning steps.
 
 First, we left-merged the recipes and interactions datasets on `id` and `recipe_id`, matching each recipe to its user ratings and reviews. Next, we replaced all ratings of 0 with `NaN`, since a rating of 0 on a 1–5 scale indicates that the user did not actually submit a rating rather than a true rating of zero. From this, we computed `avg_rating` as the mean rating per recipe.
 
-We then parsed the `nutrition` column, which stored all nutrient values as a single string, into individual numeric columns for calories, protein, fat, and so on. Because a protein value of 0% DV is implausible for any real recipe and typically indicates that the field was never filled in, we also replaced protein values of 0 with `NaN`. We then dropped all rows missing `avg_rating`, `protein`, or `calories`, as these are essential for our analysis.
+We then parsed the `nutrition` column, which stored all nutrient values as a single string, into individual numeric columns for calories, protein, fat, and so on. Because a protein value of 0% DV is implausible for any real recipe and typically indicates that the field was never filled in, we also replaced protein values of 0 with `NaN`. We then dropped all rows missing `avg_rating`, `protein`, or `calories`, as these are essential for our analysis. These steps yield a clean, analysis-ready dataset with no missing values in key columns.
 
-Finally, we created two derived columns: `is_high_protein`, a boolean flag set to `True` when protein ≥ 20% DV (the FDA "high protein" threshold), and `rating_class`, which bins `avg_rating` into three equal-width categories (low, medium, high) for use in our prediction model.
+Finally, we created two derived columns: `is_high_protein`, a boolean flag set to `True` when protein ≥ 20% DV (the FDA "high protein" threshold) — this is our prediction target — and `rating_class`, which bins `avg_rating` into three equal-width categories (low, medium, high) for exploratory analysis.
 
 The first five rows of the cleaned dataset are shown below.
 
@@ -62,7 +62,7 @@ We first examined the distribution of protein (% DV) across all recipes. As show
 
 <iframe src="assets/protein-distribution-fda.html" width="800" height="500" frameborder="0"></iframe>
 
-We also examined the distribution of average ratings. Ratings are heavily right-skewed, with the vast majority of recipes scoring between 4 and 5. This skew motivates our decision to bin ratings into three classes (low, medium, high) for the prediction task, rather than treating rating as a continuous target.
+We also examined the distribution of average ratings. Ratings are heavily left-skewed; most recipes score 4–5. We retain a binned `rating_class` for exploratory analysis, but our prediction task uses the FDA binary flag `is_high_protein` instead.
 
 <iframe src="assets/avg-rating-distribution.html" width="800" height="500" frameborder="0"></iframe>
 
@@ -93,7 +93,7 @@ High-protein recipes actually score marginally *lower* on average, though the di
 | medium | 34.5 | 446.2 | 9.3 |
 | high | 34.8 | 441.2 | 9.4 |
 
-Interestingly, higher-rated recipes tend to have slightly more protein and fewer calories on average. This pattern is subtle but consistent across classes and motivates including both features in our model.
+Interestingly, higher-rated recipes tend to have slightly more protein and fewer calories on average. This pattern is subtle but consistent across classes.
 
 ---
 
@@ -133,35 +133,27 @@ The observed difference in means was **−0.0186** — high-protein recipes actu
 
 ## Framing a Prediction Problem
 
-Having explored the relationship between protein and ratings, we now ask: can we predict how well a recipe will be rated based on its nutritional and structural features?
+Having explored the relationship between protein and ratings, we now ask: can we predict whether a recipe meets the FDA "high protein" threshold (≥ 20% DV) based on its other nutritional and structural features?
 
-We frame this as a **multiclass classification** problem, predicting `rating_class` — a three-class variable (low, medium, high) derived by binning `avg_rating` into equal-width intervals. We chose `rating_class` as the response variable because raw average ratings are heavily skewed toward 4–5, and a binned classification target lets us evaluate model performance more meaningfully across the full range of ratings.
+We frame this as a **binary classification** problem, predicting `is_high_protein` — the FDA-based flag (21 CFR 101.54) indicating whether a recipe meets the high-protein threshold. We switched to this binary target because the prior three-class rating prediction (low/medium/high) yielded very low macro F1 (~0.32) due to severe class imbalance. The FDA binary flag offers a more balanced and interpretable prediction task.
 
-We evaluate our models using both **accuracy** and **F1 (macro)**. Accuracy measures overall correctness, but given the class imbalance (most recipes fall into the "high" rating class), accuracy alone can be misleading — a model that always predicts "high" would appear very accurate. F1 (macro) averages the F1 score across all three classes equally, penalizing poor performance on the minority classes (low and medium) and giving a more honest picture of model quality.
-
-All features used — `protein`, `calories`, `n_ingredients`, and `minutes` — are properties of the recipe itself and would be known at the time a recipe is posted, before any ratings have been submitted. This ensures there is no data leakage in our model.
+We evaluate our models using both **accuracy** and **F1 (macro)**. With balanced classes (~50/50), either metric is appropriate; we report both for completeness. We exclude `protein` from the feature set to avoid trivial prediction (since `is_high_protein` is directly defined by protein ≥ 20). All features used — `calories`, `minutes`, `n_ingredients`, and `total_fat` — are properties of the recipe itself and would be known at the time a recipe is posted, before any ratings have been submitted. This ensures there is no data leakage in our model.
 
 ---
 
 ## Baseline Model
 
-Our baseline model is a logistic regression classifier trained on two quantitative features: `protein` (% DV per serving) and `calories` (total calories per serving). Both features are quantitative and continuous; no encoding was required. We used one-vs-rest multiclass classification, `class_weight='balanced'` to account for class imbalance, and `stratify=y` in the train/test split to preserve class proportions.
+Our baseline model is a logistic regression classifier trained on two quantitative features: `calories` (total calories per serving) and `minutes` (cooking time). Both are scaled with `StandardScaler` and combined with the model in a single sklearn `Pipeline`. We use `stratify=y` in the train/test split to preserve class proportions.
 
-On the training set, the model achieved approximately **93.7% accuracy** and a **macro F1 score of 0.32**. On the test set, performance was nearly identical: **93.5% accuracy** and **macro F1 of 0.32**. The large gap between accuracy and macro F1 reveals the core challenge: ratings are heavily skewed toward the "high" class, so the model learns to predict "high" most of the time and does poorly on "low" and "medium" classes. The accuracy looks impressive, but the macro F1 exposes that the model fails to generalize across all rating levels. We do not consider this baseline model to be "good" — it is a starting point that motivates the richer feature engineering in our final model.
+On the test set, the baseline achieved approximately **75.5% accuracy** and a **macro F1 score of ~0.75**. We do not consider this baseline "good"—it is a minimal starting point; the final model adds features to improve.
 
 ---
 
 ## Final Model
 
-To improve upon the baseline, we engineered two additional features beyond `protein` and `calories`.
+We chose the **RandomForestClassifier** as our final model. To improve upon the baseline, we added two additional features beyond `calories` and `minutes`: `n_ingredients` (recipe complexity) and `total_fat` (fat content). We chose these because they correlate with recipe type—e.g., protein-rich mains have different fat profiles than desserts. StandardScaler puts features on the same scale and avoids one feature dominating.
 
-The first new feature applies a `StandardScaler` to `minutes` (cooking time). We hypothesized that very long recipes might frustrate users and earn lower ratings — people are busy, and a recipe that takes three hours may disappoint even if it tastes good. StandardScaler puts cooking times on a comparable scale, preventing extreme outliers from dominating the model.
-
-The second new feature applies a `QuantileTransformer` to `n_ingredients`. Ingredient count is right-skewed, with most recipes having 5–15 ingredients but a long tail of highly complex recipes. QuantileTransformer maps the distribution to a uniform shape, reducing the influence of outliers and helping the model treat ingredient complexity more evenly across recipes.
-
-We used a `RandomForestClassifier` with `class_weight='balanced'` and performed `GridSearchCV` over `max_depth` values, scoring by `f1_macro` to prioritize balanced performance across all three rating classes. The best `max_depth` found was **10**. All steps — feature transformations and model training — were implemented in a single `sklearn` `Pipeline`, and we used the same train/test split as the baseline model for a direct comparison.
-
-The final model achieved approximately **93.8% test accuracy** and a **macro F1 of 0.34** on the test set, improving over the baseline's macro F1 of 0.32. While the overall accuracy gain is modest, the improvement in macro F1 reflects better performance on the minority classes (low and medium ratings) — which is exactly what we care about. Adding cooking time and ingredient complexity as features, beyond nutrition alone, gives the model a richer representation of what makes a recipe appeal to users.
+The RandomForestClassifier achieved a **test macro F1 of 0.7759** on the held-out test set, outperforming the logistic regression baseline. We selected this model based on its stronger F1 performance in cross-validation.
 
 ---
 

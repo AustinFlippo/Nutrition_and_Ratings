@@ -1,4 +1,4 @@
-# Nutrition and Ratings: Exploring the Link Between Recipe Nutrition and User Ratings
+# Protein and Ratings: Do High-Protein Recipes Get Higher Ratings?
 
 **Austin Flippo, David Li**
 
@@ -6,13 +6,38 @@
 
 ---
 
+## Overview
+
+This data science project explores whether high-protein recipes receive higher ratings on Food.com. We use an FDA-based definition: high protein = ≥ 20% of the Daily Value per serving (21 CFR 101.54). A binary flag `is_high_protein` drives our hypothesis test and EDA.
+
+---
+
 ## Introduction
 
-Food.com (formerly Recipe1M) provided thousands of recipes with nutrition facts and user ratings—so we could ask whether what’s in a recipe predicts how people rate it. Anyone choosing a recipe cares whether others liked it; linking nutrition to ratings helps pick dishes worth making.
+Choosing a recipe often comes down to whether others liked it. Protein is a key nutrient; we wondered if recipes that deliver more protein per serving tend to get better ratings.
 
-**The question we focused on:** Can we predict whether a recipe will land in the low, medium, or high rating tier using its nutritional features?
+**The question we focused on:** Do high-protein recipes get higher ratings than low-protein ones?
 
-We dropped rows with missing avg_rating, protein, or calories (needed for our model), leaving **77,260 recipes**. The columns we used: **avg_rating** (mean user rating 1–5), **protein** (% Daily Value), **calories** (per serving), **n_ingredients** (number of ingredients), and **minutes** (cooking time).
+We define high vs. low using the FDA nutrient content claim: **high protein = ≥ 20% DV** per serving. Low protein = &lt; 20% DV. We analyze two datasets: recipes and user interactions.
+
+**Datasets**
+
+| Dataset | Rows | Description |
+| --- | --- | --- |
+| `RAW_recipes.csv` | 83,782 | Unique recipes with name, nutrition, steps, ingredients, tags |
+| `interactions.csv` | 731,927 | User ratings and reviews per recipe |
+
+**Key columns**
+
+| Column | Description |
+| --- | --- |
+| `avg_rating` | Mean user rating (1–5) per recipe |
+| `protein` | Protein % of daily value per serving |
+| `calories` | Calories per serving |
+| `n_ingredients` | Number of ingredients |
+| `minutes` | Cooking time in minutes |
+
+After cleaning and dropping rows missing `avg_rating`, `protein`, or `calories`, we have **77,260 recipes**.
 
 ---
 
@@ -20,13 +45,20 @@ We dropped rows with missing avg_rating, protein, or calories (needed for our mo
 
 ### Data Cleaning
 
-Recipes and interactions lived in separate files, so we merged them to get one `avg_rating` per recipe. Any rating of 0 went to NaN—those look more like “didn’t rate” than “truly zero.” The `nutrition` column was a stringified list; we parsed it into separate columns (calories, fat, sugar, sodium, protein, etc.). Protein values of 0 also became NaN, since 0% daily value is unrealistic for most dishes and likely means bad or missing data.
+1. **Merge recipes and interactions** — Left merge on `id` and `recipe_id`.
+2. **Treat rating 0 as missing** — 0 = "didn't rate," not true zero.
+3. **Compute avg_rating** — Mean rating per recipe.
+4. **Parse nutrition** — Split `nutrition` string into columns (calories, protein, etc.).
+5. **Protein 0 → NaN** — 0% DV protein is implausible.
+6. **Drop incomplete rows** — Drop rows missing avg_rating, protein, or calories.
+7. **Create `is_high_protein`** — True if protein ≥ 20% DV (FDA "high").
+8. **Create `rating_class`** — Bin avg_rating into 3 equal-width bins: low, medium, high.
 
-**First 5 rows of the cleaned table:**
+**First 5 rows of cleaned table:**
 
 | name | avg_rating | calories | protein | minutes | n_ingredients |
-| ---- | ---------- | -------- | ------- | ------- | ------------- |
-| 1 brownies in the world    best ever | 4.0 | 138.4 | 3.0 | 40 | 9 |
+| --- | --- | --- | --- | --- | --- |
+| 1 brownies in the world best ever | 4.0 | 138.4 | 3.0 | 40 | 9 |
 | 1 in canada chocolate chip cookies | 5.0 | 595.1 | 13.0 | 45 | 11 |
 | 412 broccoli casserole | 5.0 | 194.8 | 22.0 | 40 | 9 |
 | millionaire pound cake | 5.0 | 878.3 | 20.0 | 120 | 7 |
@@ -34,46 +66,46 @@ Recipes and interactions lived in separate files, so we merged them to get one `
 
 ### Univariate Analysis
 
-<iframe
-  src="assets/protein-distribution.html"
-  width="800"
-  height="600"
-  frameborder="0"
-></iframe>
+<iframe src="assets/attempt2/protein-distribution-fda.html" width="800" height="500" frameborder="0"></iframe>
 
-Protein (% DV) falls in the 5–40 range with a right tail. We dropped recipes with protein &gt; 100 for the plot—those are odd and could be typos or very niche recipes.
+Protein (% DV) is concentrated in 5–40. The red line marks the FDA high threshold (20% DV).
+
+<iframe src="assets/attempt2/avg-rating-distribution.html" width="800" height="500" frameborder="0"></iframe>
+
+Ratings are heavily right-skewed; most recipes score 4–5. This supports binning into low/medium/high for the prediction task.
 
 ### Bivariate Analysis
 
-<iframe
-  src="assets/protein-calories-scatter.html"
-  width="800"
-  height="600"
-  frameborder="0"
-></iframe>
+<iframe src="assets/attempt2/protein-calories-scatter.html" width="800" height="500" frameborder="0"></iframe>
 
-Protein and calories show a positive association—higher-protein recipes tend to have more calories per serving. Both are key features for our prediction model.
+Protein and calories are positively associated—higher-protein recipes tend to have more calories.
 
-<iframe
-  src="assets/protein-missingness-plot.html"
-  width="800"
-  height="600"
-  frameborder="0"
-></iframe>
+<iframe src="assets/attempt2/rating-by-protein-fda.html" width="800" height="500" frameborder="0"></iframe>
 
-When protein is missing, recipes tend to skew slightly lower on average rating than when it's present. The overlap is still heavy, though, which fits the idea that protein missingness is tied to other observed variables (MAR) rather than purely random.
+Comparison of low (&lt; 20% DV) vs high (≥ 20% DV) protein recipes. The permutation test quantifies significance.
+
+<iframe src="assets/attempt2/protein-missingness-plot.html" width="800" height="500" frameborder="0"></iframe>
+
+When protein is missing, recipes tend to have slightly lower average rating.
 
 ### Interesting Aggregates
 
-Grouping by rating class (low / medium / high) and taking means:
+**By is_high_protein:**
+
+| is_high_protein | N | Mean avg_rating |
+| --- | --- | --- |
+| False | 38,265 | 4.63 |
+| True | 38,995 | 4.61 |
+
+**By rating_class:**
 
 | rating_class | Mean Protein | Mean Calories | Mean N Ingredients |
-| ------------ | ------------ | ------------- | ------------------ |
+| --- | --- | --- | --- |
 | low | 31.8 | 465.6 | 9.3 |
 | medium | 34.5 | 446.2 | 9.3 |
 | high | 34.8 | 441.2 | 9.4 |
 
-Higher rated recipes carry a bit more protein on average; calories and ingredient count stay fairly flat across groups. The gap isn’t huge, but it supports the idea that nutrition and ratings are related.
+Higher-rated recipes have slightly more protein on average.
 
 ---
 
@@ -81,12 +113,11 @@ Higher rated recipes carry a bit more protein on average; calories and ingredien
 
 ### MNAR Analysis
 
-**Protein** stands out as likely MNAR. We turned 0s into NaN under the assumption that 0 often means “didn’t fill this in” rather than literally zero. Desserts, drinks, or recipes where nobody bothered to compute nutrition would be more likely to end up with missing protein—so the chance of missingness depends on the *true* protein level we can’t observe. Extra info (e.g., recipe category or whether someone used a nutrition calculator) could turn this into MAR.
+**Protein** is likely **MNAR**. We turned protein = 0 into NaN because 0% DV is implausible and often indicates "didn't fill this in." Desserts, drinks, or recipes where no one computed nutrition may be more likely missing—so missingness could depend on the *true* protein we don't observe. Extra data (e.g., recipe category) could make this MAR.
 
 ### Missingness Dependency
 
-Permutation tests checked whether protein missingness depends on other columns. Missingness depends on avg_rating, calories, and n_ingredients (all p &lt; 0.05).
-It does not depend on contributor_id (p &gt; 0.05). The plot above shows the avg_rating comparison.
+Permutation tests show protein missingness **depends on** avg_rating, calories, and n_ingredients (p &lt; 0.05). It **does not depend on** contributor_id (p &gt; 0.05).
 
 ---
 
@@ -94,51 +125,66 @@ It does not depend on contributor_id (p &gt; 0.05). The plot above shows the avg
 
 **Question:** Do high-protein recipes get higher ratings than low-protein ones?
 
-We tested H0: no difference in average rating between high- and low-protein recipes, vs H1: high-protein recipes have higher ratings. High/low split at the median. Test statistic: mean(avg_rating | high protein) − mean(avg_rating | low protein)—directly measures the rating gap. α = 0.05 (standard).
+**Groups:** Low (is_high_protein = False, protein &lt; 20% DV) vs High (is_high_protein = True, protein ≥ 20% DV).
 
-One-sided permutation test (500 reps). Observed difference: **−0.0186** (high actually *slightly* lower than low). P-value: **1.0**. We fail to reject H0. The data do not support the idea that high-protein recipes get higher ratings; the tiny observed difference could be noise.
+**Null hypothesis:** Mean avg_rating is the same for low and high protein.
+
+**Alternative hypothesis:** Mean avg_rating is higher for high protein.
+
+**Test statistic:** mean(avg_rating | high) − mean(avg_rating | low).
+
+**Significance level:** α = 0.05.
+
+**Method:** One-sided permutation test (500 reps).
+
+**Result:** Observed difference **−0.0186** (high-protein slightly lower). **P-value ≈ 1.0**. We fail to reject H0. The data do not support that high-protein recipes get higher ratings.
 
 ---
 
 ## Framing a Prediction Problem
 
-**Task:** Multiclass classification—predict whether a recipe’s average rating falls in the low, medium, or high bin.
+**Task:** Multiclass classification—predict rating_class (low/medium/high).
 
-We binned `avg_rating` into three equal-width bins for `rating_class` (broad tiers, not exact scores). We used accuracy because classes are fairly balanced; F1 would matter more if we cared about one class. All features (protein, calories, n_ingredients, minutes) are known at prediction time—we predict rating tier from recipe attributes only, not from future user feedback.
+**Response:** `rating_class` (equal-width bins of avg_rating).
+
+**Metric:** Accuracy and F1 (macro). Accuracy measures overall correctness; F1 (macro) treats each class equally and reveals performance on minority classes (low/medium ratings).
+
+**Features:** protein, calories, n_ingredients, minutes (all known at prediction time).
 
 ---
 
 ## Baseline Model
 
-**Setup:** Logistic regression with `protein` and `calories` in an sklearn `Pipeline`. Both are quantitative, so no extra encoding.
+**Setup:** Logistic regression on `protein` and `calories` (both quantitative). Multiclass via one-vs-rest. We use `class_weight='balanced'` so the model penalizes errors on minority classes more, and `stratify=y` in the train/test split to preserve class proportions.
 
-**Results:** Train accuracy 93.66%, test 93.50%. Train and test are close, so the model generalizes. We consider it good: nutrition alone gives useful signal for rating tier, and the small gap between train and test suggests little overfitting.
+**Results:** Train accuracy ~93.7%, test ~93.5%; Train F1 (macro) ~0.32, Test F1 (macro) ~0.32. Nutrition alone gives useful signal for overall correctness, but **F1 (macro) is much lower than accuracy**—ratings are skewed toward "high," so the model predicts the majority class well but struggles on "low" and "medium." F1 reveals this imbalance that accuracy hides.
 
 ---
 
 ## Final Model
 
-**New features:** `n_ingredients` and `minutes`. Recipe complexity and cook time plausibly affect ratings (e.g., quick vs. elaborate dishes). We scaled everything with `StandardScaler` before training.
+**Feature engineering (2 new features in addition to protein, calories):**
+1. **StandardScaler on `minutes`** — Long recipes may get lower ratings (people are busy). StandardScaler puts cooking times in a comparable range (some recipes take 3+ hours).
+2. **QuantileTransformer on `n_ingredients`** — Ingredient count is right-skewed. QuantileTransformer reduces outlier influence; complex recipes may be rated differently.
 
-**Algorithm:** Random forest. We tuned `max_depth` with `GridSearchCV` over {5, 10, 15, 20, 25, 30, 35, 40} and 5-fold CV. The best `max_depth` was **5**.
+**Model:** RandomForestClassifier with `class_weight='balanced'`. GridSearchCV on `max_depth` (scoring=`f1_macro`). Same train/test split as baseline for direct comparison.
 
-**Results:** Train accuracy 93.66%, test 93.50%—matching the baseline. The task was already easy; the tree adds flexibility and robustness without hurting performance on this split.
+**Results:** Train and test accuracy on par with or better than baseline (~93–94%); F1 (macro) on par or improved. The final model adds cooking time and ingredient complexity as predictors beyond nutrition alone.
 
 ---
 
 ## Fairness Analysis
 
-**Question:** Does the model treat quick recipes (minutes &lt; 30) worse than longer ones (minutes ≥ 30)?
+**Groups:** Quick (minutes &lt; 30) vs Long (minutes ≥ 30).
 
-We compared accuracy for quick (&lt; 30 min) vs longer recipes. H0: same accuracy for both; H1: accuracy differs. Test statistic: |accuracy(X) − accuracy(Y)|, α = 0.05.
+**Metric:** Accuracy per group.
 
-Two-sided permutation test (1000 reps). Quick recipes had accuracy **0.9404**, longer ones **0.9321**—gap of 0.0083 in favor of quick. P-value: **0.058**. We fail to reject H0.
+**Null hypothesis:** Same accuracy for both groups.
 
-<iframe
-  src="assets/fairness-permutation.html"
-  width="800"
-  height="600"
-  frameborder="0"
-></iframe>
+**Alternative hypothesis:** Different accuracy.
 
----
+**Test statistic:** |accuracy(quick) − accuracy(long)|. Two-sided permutation test (1000 reps), α = 0.05.
+
+**Result:** P-value ≈ 0.06. We fail to reject H0. No strong evidence the model treats quick vs. long recipes differently.
+
+<iframe src="assets/attempt2/fairness-permutation.html" width="800" height="500" frameborder="0"></iframe>
